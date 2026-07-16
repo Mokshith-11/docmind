@@ -5,21 +5,6 @@
 create extension if not exists vector;
 create extension if not exists pg_trgm;
 
--- ── Helper: is the current user a member of the given workspace? ────────────
--- SECURITY DEFINER so RLS on workspace_members doesn't recurse.
-create or replace function public.is_workspace_member(ws uuid)
-returns boolean
-language sql
-security definer
-stable
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.workspace_members m
-    where m.workspace_id = ws and m.user_id = auth.uid()
-  );
-$$;
-
 -- ── Tables ─────────────────────────────────────────────────────────────────
 create table if not exists public.workspaces (
   id         uuid primary key default gen_random_uuid(),
@@ -103,6 +88,22 @@ create table if not exists public.eval_runs (
   notes            text
 );
 
+-- ── Helper: is the current user a member of the given workspace? ────────────
+-- Defined AFTER the tables it references. SECURITY DEFINER so RLS on
+-- workspace_members doesn't recurse.
+create or replace function public.is_workspace_member(ws uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.workspace_members m
+    where m.workspace_id = ws and m.user_id = auth.uid()
+  );
+$$;
+
 -- ── Indexes ────────────────────────────────────────────────────────────────
 create index if not exists chunks_embedding_hnsw
   on public.chunks using hnsw (embedding vector_cosine_ops);
@@ -136,17 +137,15 @@ create trigger trg_add_owner_as_member
   for each row execute function public.add_owner_as_member();
 
 -- ── Row Level Security ─────────────────────────────────────────────────────
-alter table public.workspaces       enable row level security;
+alter table public.workspaces        enable row level security;
 alter table public.workspace_members enable row level security;
-alter table public.documents        enable row level security;
-alter table public.chunks           enable row level security;
-alter table public.conversations    enable row level security;
-alter table public.messages         enable row level security;
-alter table public.semantic_cache   enable row level security;
-alter table public.eval_runs        enable row level security;
+alter table public.documents         enable row level security;
+alter table public.chunks            enable row level security;
+alter table public.conversations     enable row level security;
+alter table public.messages          enable row level security;
+alter table public.semantic_cache    enable row level security;
+alter table public.eval_runs         enable row level security;
 
--- workspaces: members can read; any authenticated user can create (must own it);
--- only owner can update/delete.
 drop policy if exists workspaces_select on public.workspaces;
 create policy workspaces_select on public.workspaces
   for select using (public.is_workspace_member(id));
@@ -163,15 +162,10 @@ drop policy if exists workspaces_delete on public.workspaces;
 create policy workspaces_delete on public.workspaces
   for delete using (owner_id = auth.uid());
 
--- workspace_members: members of the workspace can read the membership list.
 drop policy if exists members_select on public.workspace_members;
 create policy members_select on public.workspace_members
   for select using (public.is_workspace_member(workspace_id));
 
--- (Insert/update/delete of members handled server-side via service key in Phase 5.)
-
--- documents / chunks / conversations / messages / semantic_cache:
--- full access scoped to workspace membership.
 drop policy if exists documents_all on public.documents;
 create policy documents_all on public.documents
   for all using (public.is_workspace_member(workspace_id))
@@ -187,7 +181,6 @@ create policy conversations_all on public.conversations
   for all using (public.is_workspace_member(workspace_id))
   with check (public.is_workspace_member(workspace_id));
 
--- messages: scoped via their conversation's workspace.
 drop policy if exists messages_all on public.messages;
 create policy messages_all on public.messages
   for all using (
@@ -208,7 +201,6 @@ create policy semcache_all on public.semantic_cache
   for all using (public.is_workspace_member(workspace_id))
   with check (public.is_workspace_member(workspace_id));
 
--- eval_runs: global, read-only to authenticated users (writes via service key).
 drop policy if exists eval_runs_select on public.eval_runs;
 create policy eval_runs_select on public.eval_runs
   for select using (auth.role() = 'authenticated');
