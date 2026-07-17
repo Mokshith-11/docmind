@@ -1,11 +1,15 @@
 """FastAPI application entrypoint."""
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .routers import health
+from .routers import documents, health, workspaces
 
-app = FastAPI(title="DocMind API", version="0.1.0")
+logging.basicConfig(level=logging.INFO)
+
+app = FastAPI(title="DocMind API", version="0.2.0")
 
 _origins = list({settings.frontend_url, "http://localhost:5173", "http://127.0.0.1:5173"})
 app.add_middleware(
@@ -17,6 +21,8 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix="/api")
+app.include_router(workspaces.router, prefix="/api")
+app.include_router(documents.router, prefix="/api")
 
 
 @app.get("/")
