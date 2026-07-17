@@ -8,7 +8,8 @@ A production-grade SaaS: users upload documents (PDF/DOCX, including scanned fil
 - **Frontend:** React 18 + Vite + TypeScript + Tailwind CSS
 - **Database/Auth/Storage:** Supabase (Postgres + pgvector + Auth + Storage buckets)
 - **LLMs:** Google Gemini 2.0 Flash (generation + vision), Groq Llama-3.3-70B (router + fast paths)
-- **Embeddings:** Gemini text-embedding-004 (768 dims)
+- **Embeddings:** Gemini `gemini-embedding-001` with `outputDimensionality: 768`
+  (text-embedding-004 was retired by Google; 768 dims keeps `chunks.embedding vector(768)` unchanged)
 - **Reranking:** Cohere Rerank v3 (free tier)
 - **Sparse retrieval:** Postgres full-text search (tsvector) as BM25 substitute
 - **Payments:** Lemon Squeezy (checkout overlay + webhooks)
