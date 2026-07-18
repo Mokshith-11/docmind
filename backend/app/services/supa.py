@@ -25,6 +25,17 @@ def _headers(extra: dict[str, str] | None = None) -> dict[str, str]:
     return h
 
 
+def _check(r: httpx.Response) -> None:
+    """raise_for_status(), but keep the response body — Supabase puts the real
+    reason there (e.g. PGRST102 'All object keys must match')."""
+    if r.is_error:
+        raise httpx.HTTPStatusError(
+            f"{r.status_code} {r.request.method} {r.request.url}: {r.text[:500]}",
+            request=r.request,
+            response=r,
+        )
+
+
 # ── Postgres (PostgREST) ────────────────────────────────────────────────────
 async def insert(table: str, rows: list[dict[str, Any]] | dict[str, Any]) -> list[dict]:
     async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
@@ -33,14 +44,14 @@ async def insert(table: str, rows: list[dict[str, Any]] | dict[str, Any]) -> lis
             headers=_headers({"Content-Type": "application/json", "Prefer": "return=representation"}),
             json=rows,
         )
-        r.raise_for_status()
+        _check(r)
         return r.json()
 
 
 async def select(table: str, params: dict[str, str]) -> list[dict]:
     async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
         r = await c.get(f"{REST}/{table}", headers=_headers(), params=params)
-        r.raise_for_status()
+        _check(r)
         return r.json()
 
 
@@ -52,14 +63,14 @@ async def update(table: str, params: dict[str, str], patch: dict[str, Any]) -> l
             params=params,
             json=patch,
         )
-        r.raise_for_status()
+        _check(r)
         return r.json()
 
 
 async def delete(table: str, params: dict[str, str]) -> None:
     async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
         r = await c.delete(f"{REST}/{table}", headers=_headers(), params=params)
-        r.raise_for_status()
+        _check(r)
 
 
 async def is_member(user_id: str, workspace_id: str) -> bool:
@@ -79,13 +90,13 @@ async def upload(path: str, data: bytes, content_type: str) -> None:
             headers=_headers({"Content-Type": content_type, "x-upsert": "true"}),
             content=data,
         )
-        r.raise_for_status()
+        _check(r)
 
 
 async def download(path: str) -> bytes:
     async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
         r = await c.get(f"{STORAGE}/object/{BUCKET}/{path}", headers=_headers())
-        r.raise_for_status()
+        _check(r)
         return r.content
 
 
@@ -93,7 +104,7 @@ async def remove(path: str) -> None:
     async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
         r = await c.delete(f"{STORAGE}/object/{BUCKET}/{path}", headers=_headers())
         if r.status_code not in (200, 404):
-            r.raise_for_status()
+            _check(r)
 
 
 async def ensure_bucket() -> bool:

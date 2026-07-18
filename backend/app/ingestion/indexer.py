@@ -36,6 +36,9 @@ async def ingest_document(document_id: str, workspace_id: str, storage_path: str
                         "page": page.number,
                         "chunk_index": idx,
                         "chunk_type": "text",
+                        # Explicit null: PostgREST rejects a bulk insert whose rows
+                        # don't all carry identical keys (PGRST102).
+                        "table_json": None,
                     }
                 )
                 idx += 1
