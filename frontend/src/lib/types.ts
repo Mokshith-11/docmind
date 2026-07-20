@@ -12,6 +12,23 @@ export interface DocumentOut {
   created_at: string | null;
 }
 
+export interface Citation {
+  n: number;
+  document_id: string;
+  filename: string;
+  page: number | null;
+  chunk_type: string;
+  excerpt: string;
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  citations?: Citation[];
+  latency_ms?: number;
+  route?: string;
+}
+
 export interface Workspace {
   id: string;
   name: string;

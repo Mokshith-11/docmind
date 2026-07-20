@@ -73,6 +73,18 @@ async def delete(table: str, params: dict[str, str]) -> None:
         _check(r)
 
 
+async def rpc(fn: str, args: dict[str, Any]) -> list[dict]:
+    """Call a Postgres function exposed at /rest/v1/rpc/<fn>."""
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
+        r = await c.post(
+            f"{REST}/rpc/{fn}",
+            headers=_headers({"Content-Type": "application/json"}),
+            json=args,
+        )
+        _check(r)
+        return r.json()
+
+
 async def is_member(user_id: str, workspace_id: str) -> bool:
     """Service key bypasses RLS, so membership is enforced here."""
     rows = await select(

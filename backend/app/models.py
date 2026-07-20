@@ -23,6 +23,21 @@ class ErrorResponse(BaseModel):
     detail: str | None = None
 
 
+class ChatRequest(BaseModel):
+    workspace_id: str
+    message: str
+    conversation_id: str | None = None
+
+
+class Citation(BaseModel):
+    n: int
+    document_id: str
+    filename: str
+    page: int | None = None
+    chunk_type: str = "text"
+    excerpt: str = ""
+
+
 class WorkspaceOut(BaseModel):
     id: str
     name: str

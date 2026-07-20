@@ -47,29 +47,49 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export interface SseEvent {
+  event: string;
+  data: Record<string, unknown>;
+}
+
 /**
- * Read a Server-Sent-Events stream from the API (used by /api/chat in Phase 3).
- * Yields each `data:` payload as it arrives.
+ * Read a Server-Sent-Events stream from the API (used by POST /api/chat).
+ * Yields `{ event, data }` for each `event:`/`data:` frame as it arrives.
  */
-export async function* sse(path: string, body: unknown): AsyncGenerator<string> {
+export async function* sse(path: string, body: unknown): AsyncGenerator<SseEvent> {
   const res = await fetch(`${API_URL}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeader()) },
     body: JSON.stringify(body),
   });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
   if (!res.body) throw new Error("No response body");
+
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split("\n\n");
-    buffer = parts.pop() ?? "";
-    for (const part of parts) {
-      const line = part.split("\n").find((l) => l.startsWith("data:"));
-      if (line) yield line.slice(5).trim();
+
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+
+    for (const frame of frames) {
+      let event = "message";
+      let data = "";
+      for (const line of frame.split("\n")) {
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trim();
+      }
+      if (!data) continue;
+      try {
+        yield { event, data: JSON.parse(data) };
+      } catch {
+        /* skip malformed frame */
+      }
     }
   }
 }

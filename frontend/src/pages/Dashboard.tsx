@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Dropzone from "../components/upload/Dropzone";
 import IngestStatusList from "../components/upload/IngestStatusList";
 import { useAuth } from "../hooks/useAuth";
@@ -59,9 +59,17 @@ export default function Dashboard() {
             {workspace ? workspace.name : "Loading workspace…"} · {user?.email}
           </p>
         </div>
-        <button onClick={signOut} className="text-sm text-slate-400 hover:text-slate-200">
-          Sign out
-        </button>
+        <div className="flex items-center gap-5">
+          <Link
+            to="/chat"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+          >
+            Ask your documents
+          </Link>
+          <button onClick={signOut} className="text-sm text-slate-400 hover:text-slate-200">
+            Sign out
+          </button>
+        </div>
       </header>
 
       <main className="mx-auto max-w-3xl space-y-8 p-8">

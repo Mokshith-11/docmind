@@ -3,6 +3,7 @@ import { useAuth } from "./hooks/useAuth";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import Chat from "./pages/Chat";
 
 function Protected({ children }: { children: JSX.Element }) {
   const { session, loading } = useAuth();
@@ -20,6 +21,14 @@ export default function App() {
         element={
           <Protected>
             <Dashboard />
+          </Protected>
+        }
+      />
+      <Route
+        path="/chat"
+        element={
+          <Protected>
+            <Chat />
           </Protected>
         }
       />

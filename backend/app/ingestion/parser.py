@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import io
+import re
+import unicodedata
 from dataclasses import dataclass, field
 
 import fitz  # PyMuPDF
@@ -10,6 +12,30 @@ from docx import Document as DocxDocument
 
 # Below this, a PDF page is probably a scan -> OCR fallback (Phase 4).
 MIN_TEXT_CHARS = 50
+
+# Control chars (except \n \r \t) leak in from PDF bullet/dingbat glyphs.
+_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+_MULTI_BLANK = re.compile(r"\n{3,}")
+_TRAILING_WS = re.compile(r"[ \t]+\n")
+
+
+def clean_text(text: str) -> str:
+    """Strip extraction artifacts that would otherwise be embedded and quoted back.
+
+    Note: glyphs a PDF's font cmap maps incorrectly (e.g. an embedded subset font
+    rendering the rupee sign as 'I') cannot be recovered here — the wrong
+    codepoint is what the file actually contains. OCR (Phase 4) is the fallback
+    for those documents.
+    """
+    if not text:
+        return ""
+    text = unicodedata.normalize("NFKC", text)
+    text = _CONTROL.sub(" ", text)
+    text = text.replace("�", " ")  # unmappable glyph
+    text = text.replace(" ", " ")  # non-breaking space
+    text = _TRAILING_WS.sub("\n", text)
+    text = _MULTI_BLANK.sub("\n\n", text)
+    return text.strip()
 
 
 @dataclass
@@ -21,10 +47,10 @@ class Table:
         if not self.rows:
             return ""
         head, *body = self.rows
-        cells = [c if c is not None else "" for c in head]
+        cells = [clean_text(c) if c else "" for c in head]
         out = ["| " + " | ".join(cells) + " |", "| " + " | ".join("---" for _ in cells) + " |"]
         for r in body:
-            out.append("| " + " | ".join((c or "") for c in r) + " |")
+            out.append("| " + " | ".join(clean_text(c) if c else "" for c in r) + " |")
         return "\n".join(out)
 
 
@@ -62,7 +88,7 @@ def _parse_pdf(data: bytes) -> Parsed:
     out = Parsed()
     with fitz.open(stream=data, filetype="pdf") as doc:
         for i, page in enumerate(doc, start=1):
-            text = (page.get_text() or "").strip()
+            text = clean_text(page.get_text() or "")
             out.pages.append(
                 Page(number=i, text=text, needs_ocr=len(text) < MIN_TEXT_CHARS)
             )

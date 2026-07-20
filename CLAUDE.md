@@ -7,7 +7,8 @@ A production-grade SaaS: users upload documents (PDF/DOCX, including scanned fil
 - **Backend:** FastAPI, Python 3.11, uv for dependency management
 - **Frontend:** React 18 + Vite + TypeScript + Tailwind CSS
 - **Database/Auth/Storage:** Supabase (Postgres + pgvector + Auth + Storage buckets)
-- **LLMs:** Google Gemini 2.0 Flash (generation + vision), Groq Llama-3.3-70B (router + fast paths)
+- **LLMs:** Google Gemini 2.5 Flash (generation + vision; 2.0-flash's free-tier daily
+  quota is easily exhausted), Groq Llama-3.3-70B (router + fast paths)
 - **Embeddings:** Gemini `gemini-embedding-001` with `outputDimensionality: 768`
   (text-embedding-004 was retired by Google; 768 dims keeps `chunks.embedding vector(768)` unchanged)
 - **Reranking:** Cohere Rerank v3 (free tier)
