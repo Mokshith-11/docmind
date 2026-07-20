@@ -66,6 +66,9 @@ export default function Dashboard() {
           >
             Ask your documents
           </Link>
+          <Link to="/metrics" className="text-sm text-slate-400 hover:text-slate-200">
+            Metrics
+          </Link>
           <Link to="/settings" className="text-sm text-slate-400 hover:text-slate-200">
             Settings
           </Link>

@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Chat from "./pages/Chat";
 import Settings from "./pages/Settings";
+import Metrics from "./pages/Metrics";
 
 function Protected({ children }: { children: JSX.Element }) {
   const { session, loading } = useAuth();
@@ -38,6 +39,14 @@ export default function App() {
         element={
           <Protected>
             <Settings />
+          </Protected>
+        }
+      />
+      <Route
+        path="/metrics"
+        element={
+          <Protected>
+            <Metrics />
           </Protected>
         }
       />

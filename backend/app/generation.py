@@ -18,6 +18,15 @@ MODEL = "gemini-2.5-flash"
 _BASE = "https://generativelanguage.googleapis.com/v1beta"
 _TIMEOUT = httpx.Timeout(120.0)
 
+# Estimated cost per token (Gemini 2.5 Flash paid-tier list price). Free tier is
+# $0; this lets the dashboard show what usage *would* cost at scale.
+_COST_IN = 0.30 / 1_000_000
+_COST_OUT = 2.50 / 1_000_000
+
+
+def estimate_cost(tokens_in: int, tokens_out: int) -> float:
+    return round(tokens_in * _COST_IN + tokens_out * _COST_OUT, 6)
+
 SYSTEM = """You are DocMind, answering strictly from the user's own documents.
 
 Rules:
@@ -39,8 +48,14 @@ def build_prompt(question: str, sources: list[Candidate]) -> str:
     return f"{SYSTEM}\n\n--- SOURCES ---\n{joined}\n\n--- QUESTION ---\n{question}"
 
 
-async def stream_answer(question: str, sources: list[Candidate]) -> AsyncGenerator[str, None]:
-    """Yield answer text chunks as Gemini produces them."""
+async def stream_answer(
+    question: str, sources: list[Candidate], usage: dict | None = None
+) -> AsyncGenerator[str, None]:
+    """Yield answer text chunks as Gemini produces them.
+
+    If `usage` is provided, it's populated with tokens_in / tokens_out / cost_usd
+    from Gemini's usageMetadata once the stream completes.
+    """
     if not settings.gemini_api_key:
         yield "The server is missing GEMINI_API_KEY."
         return
@@ -82,5 +97,12 @@ async def stream_answer(question: str, sources: list[Candidate]) -> AsyncGenerat
                         for part in cand.get("content", {}).get("parts", []):
                             if text := part.get("text"):
                                 yield text
+                    if usage is not None and (um := data.get("usageMetadata")):
+                        t_in = um.get("promptTokenCount", 0)
+                        t_out = um.get("candidatesTokenCount", 0)
+                        usage.update(
+                            tokens_in=t_in, tokens_out=t_out,
+                            cost_usd=estimate_cost(t_in, t_out),
+                        )
                 except json.JSONDecodeError:
                     continue

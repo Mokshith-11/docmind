@@ -3,7 +3,19 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
+
+from ..ratelimit import limiter
 
 from ..deps import get_current_user
 from ..ingestion.indexer import ingest_document
@@ -23,7 +35,9 @@ async def _require_member(user: CurrentUser, workspace_id: str) -> None:
 
 
 @router.post("", response_model=UploadAccepted, status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("15/minute")
 async def upload_document(
+    request: Request,
     background: BackgroundTasks,
     workspace_id: str = Form(...),
     file: UploadFile = File(...),

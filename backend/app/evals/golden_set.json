@@ -1,0 +1,15 @@
+{
+  "description": "Golden Q&A pairs grounded in the sample documents (DevOps notes + AI Voice Receptionist proposal). Used by run_evals.py to score faithfulness and answer relevance.",
+  "items": [
+    {"question": "What is DevOps?", "expects": "A cultural/technical movement improving collaboration between development and operations teams for faster, higher-quality delivery."},
+    {"question": "List the phases of the DevOps lifecycle.", "expects": "Plan, Develop/Code, Build, Test, Release, Deploy, Operate, Monitor."},
+    {"question": "What is the first step to set up Azure DevOps?", "expects": "Create a GitHub account / visit github.com and sign up."},
+    {"question": "What is continuous integration?", "expects": "Practice of frequently merging code changes and automatically building/testing them."},
+    {"question": "What does the Professional plan cost per month?", "expects": "Around 20,000 (rupees) per month."},
+    {"question": "Which languages does the AI receptionist support?", "expects": "Tamil, Hindi, and English."},
+    {"question": "What is included in the Enterprise plan that Professional does not have?", "expects": "Custom voice/persona, multi-location support, API integrations, dedicated account manager, SLA."},
+    {"question": "How does the AI receptionist handle multiple simultaneous calls?", "expects": "It answers every caller at once with no busy tone or hold music, even at peak hours."},
+    {"question": "What analytics does the product provide?", "expects": "Call volume, peak hours, common queries, and missed-call trends via a dashboard."},
+    {"question": "What is the capital of France?", "expects": "NOT ANSWERABLE from the documents — the system should say it can't find it."}
+  ]
+}

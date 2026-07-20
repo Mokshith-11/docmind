@@ -6,8 +6,10 @@ import logging
 import time
 from collections.abc import AsyncGenerator
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
+
+from ..ratelimit import limiter
 
 from ..agents.multihop import multihop_retrieve
 from ..agents.router import classify
@@ -51,7 +53,9 @@ async def _conversation_id(req: ChatRequest, user: CurrentUser) -> str:
 
 
 @router.post("/chat")
+@limiter.limit("20/minute")
 async def chat(
+    request: Request,
     req: ChatRequest,
     user: CurrentUser = Depends(get_current_user),
 ) -> StreamingResponse:
@@ -111,7 +115,8 @@ async def chat(
             yield _sse("sources", {"citations": citations})
 
             answer = ""
-            async for piece in stream_answer(req.message, sources):
+            usage: dict = {}
+            async for piece in stream_answer(req.message, sources, usage):
                 answer += piece
                 yield _sse("token", {"text": piece})
 
@@ -120,7 +125,8 @@ async def chat(
                 "messages",
                 {"conversation_id": conv_id, "role": "assistant", "content": answer,
                  "citations": citations, "route": route, "latency_ms": latency,
-                 "tokens_in": None, "tokens_out": None, "cost_usd": None, "cache_hit": False},
+                 "tokens_in": usage.get("tokens_in"), "tokens_out": usage.get("tokens_out"),
+                 "cost_usd": usage.get("cost_usd"), "cache_hit": False},
             )
             if embedding is not None and answer.strip():
                 await cache.store(req.message, embedding, answer, citations, req.workspace_id)
