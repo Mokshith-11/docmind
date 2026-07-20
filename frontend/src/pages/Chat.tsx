@@ -32,6 +32,13 @@ export default function Chat() {
       })) {
         if (event === "meta") {
           setConversationId(data.conversation_id as string);
+        } else if (event === "route") {
+          const route = data.route as string;
+          setMessages((m) => {
+            const next = [...m];
+            next[next.length - 1] = { ...next[next.length - 1], route };
+            return next;
+          });
         } else if (event === "sources") {
           const citations = data.citations as Citation[];
           setMessages((m) => {

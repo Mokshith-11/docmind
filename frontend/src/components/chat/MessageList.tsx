@@ -45,8 +45,9 @@ export default function MessageList({ messages }: { messages: ChatMessage[] }) {
             </div>
           ) : (
             <div className="max-w-[90%]">
+              {m.route && <RouteBadge route={m.route} />}
               <div className="whitespace-pre-wrap leading-relaxed text-slate-100">
-                {m.content ? withCitations(m.content) : <Thinking />}
+                {m.content ? withCitations(m.content) : <Thinking route={m.route} />}
               </div>
               {m.citations && <CitationPanel citations={m.citations} />}
               {m.latency_ms != null && (
@@ -63,10 +64,25 @@ export default function MessageList({ messages }: { messages: ChatMessage[] }) {
   );
 }
 
-function Thinking() {
+const ROUTE_LABEL: Record<string, string> = {
+  simple: "Direct lookup",
+  multihop: "Multi-step reasoning",
+  table: "Table analysis",
+};
+
+function RouteBadge({ route }: { route: string }) {
+  return (
+    <span className="mb-1.5 inline-block rounded bg-slate-800 px-2 py-0.5 font-mono text-[0.7rem] text-slate-400">
+      {ROUTE_LABEL[route] ?? route}
+    </span>
+  );
+}
+
+function Thinking({ route }: { route?: string }) {
+  const verb = route === "multihop" ? "Breaking down your question" : "Searching your documents";
   return (
     <span className="inline-flex gap-1 text-slate-500">
-      <span className="animate-pulse">Searching your documents</span>
+      <span className="animate-pulse">{verb}</span>
       <span className="animate-bounce">…</span>
     </span>
   );

@@ -9,10 +9,13 @@ from collections.abc import AsyncGenerator
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 
+from ..agents.multihop import multihop_retrieve
+from ..agents.router import classify
+from ..agents.table_qa import table_retrieve
 from ..deps import get_current_user
 from ..generation import stream_answer
 from ..models import ChatRequest, CurrentUser
-from ..retrieval.hybrid import hybrid_search
+from ..retrieval.hybrid import Candidate, hybrid_search
 from ..retrieval.rerank import rerank
 from ..services import supa
 
@@ -22,6 +25,16 @@ router = APIRouter(tags=["chat"])
 
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+async def _retrieve(route: str, question: str, workspace_id: str) -> list[Candidate]:
+    """Dispatch to the strategy the router chose."""
+    if route == "multihop":
+        return await multihop_retrieve(question, workspace_id)
+    if route == "table":
+        return await table_retrieve(question, workspace_id)
+    # simple
+    return await rerank(question, await hybrid_search(question, workspace_id))
 
 
 async def _conversation_id(req: ChatRequest, user: CurrentUser) -> str:
@@ -56,8 +69,9 @@ async def chat(
                  "tokens_out": None, "cost_usd": None, "cache_hit": False},
             )
 
-            candidates = await hybrid_search(req.message, req.workspace_id)
-            sources = await rerank(req.message, candidates)
+            route = await classify(req.message)
+            yield _sse("route", {"route": route})
+            sources = await _retrieve(route, req.message, req.workspace_id)
 
             # Look up filenames so citations are human-readable.
             names: dict[str, str] = {}
@@ -84,10 +98,10 @@ async def chat(
             await supa.insert(
                 "messages",
                 {"conversation_id": conv_id, "role": "assistant", "content": answer,
-                 "citations": citations, "route": "simple", "latency_ms": latency,
+                 "citations": citations, "route": route, "latency_ms": latency,
                  "tokens_in": None, "tokens_out": None, "cost_usd": None, "cache_hit": False},
             )
-            yield _sse("done", {"latency_ms": latency, "route": "simple"})
+            yield _sse("done", {"latency_ms": latency, "route": route})
 
         except Exception as exc:  # noqa: BLE001 — the stream must always terminate cleanly
             log.exception("chat failed")
