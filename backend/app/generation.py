@@ -47,7 +47,13 @@ async def stream_answer(question: str, sources: list[Candidate]) -> AsyncGenerat
 
     payload = {
         "contents": [{"role": "user", "parts": [{"text": build_prompt(question, sources)}]}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1024},
+        # thinkingBudget 0 turns off 2.5-flash reasoning tokens so the full answer
+        # streams within the output budget instead of being truncated mid-sentence.
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 1536,
+            "thinkingConfig": {"thinkingBudget": 0},
+        },
     }
     url = f"{_BASE}/models/{MODEL}:streamGenerateContent?alt=sse"
 

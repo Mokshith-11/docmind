@@ -7,6 +7,8 @@ from ..services import supa
 from . import parser
 from .chunker import chunk_text
 from .embedder import embed_texts
+from .ocr import ocr_pages
+from .vision import describe_document_images
 
 log = logging.getLogger(__name__)
 
@@ -21,12 +23,19 @@ async def ingest_document(document_id: str, workspace_id: str, storage_path: str
         data = await supa.download(storage_path)
         parsed = parser.parse(data, filename)
 
+        # OCR fallback: recover text from scanned pages (no-op if Tesseract absent).
+        scanned = [p.number for p in parsed.pages if p.needs_ocr]
+        ocr_text = ocr_pages(data, scanned) if scanned else {}
+        for page in parsed.pages:
+            if page.needs_ocr and (t := ocr_text.get(page.number)):
+                page.text = t
+
         rows: list[dict] = []
         idx = 0
 
         for page in parsed.pages:
             if not page.text:
-                continue  # scanned page -> OCR fallback lands in Phase 4
+                continue  # still empty (e.g. scanned page and no OCR available)
             for ch in chunk_text(page.text):
                 rows.append(
                     {
@@ -60,8 +69,27 @@ async def ingest_document(document_id: str, workspace_id: str, storage_path: str
             )
             idx += 1
 
+        # Vision: describe embedded images/charts as searchable image_desc chunks.
+        image_descs = await describe_document_images(data)
+        for page_no, desc in image_descs:
+            rows.append(
+                {
+                    "document_id": document_id,
+                    "workspace_id": workspace_id,
+                    "content": desc,
+                    "page": page_no,
+                    "chunk_index": idx,
+                    "chunk_type": "image_desc",
+                    "table_json": None,
+                }
+            )
+            idx += 1
+
         if not rows:
-            raise ValueError("No extractable text found (the file may be scanned — OCR arrives in Phase 4)")
+            raise ValueError(
+                "No extractable text found. If this is a scanned document, install "
+                "Tesseract OCR (https://github.com/UB-Mannheim/tesseract/wiki)."
+            )
 
         vectors = await embed_texts([r["content"] for r in rows])
         for row, vec in zip(rows, vectors):
@@ -78,7 +106,7 @@ async def ingest_document(document_id: str, workspace_id: str, storage_path: str
                 "status": "ready",
                 "page_count": parsed.page_count,
                 "has_tables": parsed.has_tables,
-                "has_images": False,  # Phase 4: vision
+                "has_images": bool(image_descs),
             },
         )
         log.info("ingested %s: %d chunks", document_id, len(rows))
