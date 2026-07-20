@@ -46,6 +46,40 @@ class WorkspaceOut(BaseModel):
     created_at: datetime | None = None
 
 
+class WorkspaceIn(BaseModel):
+    name: str
+
+
+Role = Literal["owner", "editor", "viewer"]
+
+
+class MemberIn(BaseModel):
+    email: str
+    role: Role = "viewer"
+
+
+class MemberRole(BaseModel):
+    role: Role
+
+
+class MemberOut(BaseModel):
+    user_id: str
+    role: Role
+    email: str | None = None
+
+
+class UsageOut(BaseModel):
+    plan: str
+    doc_count: int
+    doc_limit: int | None
+    msg_count_month: int
+    msg_limit: int | None
+
+
+class CheckoutOut(BaseModel):
+    url: str
+
+
 class UploadAccepted(BaseModel):
     id: str
     status: DocStatus

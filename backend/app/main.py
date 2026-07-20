@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .routers import chat, documents, health, workspaces
+from .routers import billing, chat, documents, health, workspaces
 
 logging.basicConfig(level=logging.INFO)
 
@@ -24,6 +24,7 @@ app.include_router(health.router, prefix="/api")
 app.include_router(workspaces.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
+app.include_router(billing.router, prefix="/api")
 
 
 @app.get("/")

@@ -36,3 +36,17 @@ export interface Workspace {
   plan: string;
   created_at: string | null;
 }
+
+export interface Usage {
+  plan: string;
+  doc_count: number;
+  doc_limit: number | null;
+  msg_count_month: number;
+  msg_limit: number | null;
+}
+
+export interface Member {
+  user_id: string;
+  role: "owner" | "editor" | "viewer";
+  email: string | null;
+}

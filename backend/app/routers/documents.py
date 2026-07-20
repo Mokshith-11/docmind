@@ -7,6 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 
 from ..deps import get_current_user
 from ..ingestion.indexer import ingest_document
+from ..limits import enforce_document_limit
 from ..models import CurrentUser, DocumentOut, UploadAccepted
 from ..services import supa
 
@@ -29,6 +30,7 @@ async def upload_document(
     user: CurrentUser = Depends(get_current_user),
 ) -> UploadAccepted:
     await _require_member(user, workspace_id)
+    await enforce_document_limit(workspace_id)
 
     name = (file.filename or "").strip()
     if not name.lower().endswith(ALLOWED):

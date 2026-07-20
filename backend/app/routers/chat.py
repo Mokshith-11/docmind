@@ -14,7 +14,9 @@ from ..agents.router import classify
 from ..agents.table_qa import table_retrieve
 from ..deps import get_current_user
 from ..generation import stream_answer
+from ..limits import enforce_message_limit
 from ..models import ChatRequest, CurrentUser
+from ..retrieval import cache
 from ..retrieval.hybrid import Candidate, hybrid_search
 from ..retrieval.rerank import rerank
 from ..services import supa
@@ -55,6 +57,7 @@ async def chat(
 ) -> StreamingResponse:
     if not await supa.is_member(user.id, req.workspace_id):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not a member of this workspace")
+    await enforce_message_limit(req.workspace_id)
 
     async def events() -> AsyncGenerator[str, None]:
         started = time.perf_counter()
@@ -68,6 +71,24 @@ async def chat(
                  "citations": None, "route": None, "latency_ms": None, "tokens_in": None,
                  "tokens_out": None, "cost_usd": None, "cache_hit": False},
             )
+
+            # Semantic cache: a near-identical prior question skips all the work.
+            cached_answer, cached_citations, embedding = await cache.lookup(
+                req.message, req.workspace_id
+            )
+            if cached_answer is not None:
+                yield _sse("route", {"route": "cache"})
+                yield _sse("sources", {"citations": cached_citations})
+                yield _sse("token", {"text": cached_answer})
+                latency = int((time.perf_counter() - started) * 1000)
+                await supa.insert(
+                    "messages",
+                    {"conversation_id": conv_id, "role": "assistant", "content": cached_answer,
+                     "citations": cached_citations, "route": "cache", "latency_ms": latency,
+                     "tokens_in": None, "tokens_out": None, "cost_usd": None, "cache_hit": True},
+                )
+                yield _sse("done", {"latency_ms": latency, "route": "cache", "cache_hit": True})
+                return
 
             route = await classify(req.message)
             yield _sse("route", {"route": route})
@@ -101,7 +122,9 @@ async def chat(
                  "citations": citations, "route": route, "latency_ms": latency,
                  "tokens_in": None, "tokens_out": None, "cost_usd": None, "cache_hit": False},
             )
-            yield _sse("done", {"latency_ms": latency, "route": route})
+            if embedding is not None and answer.strip():
+                await cache.store(req.message, embedding, answer, citations, req.workspace_id)
+            yield _sse("done", {"latency_ms": latency, "route": route, "cache_hit": False})
 
         except Exception as exc:  # noqa: BLE001 — the stream must always terminate cleanly
             log.exception("chat failed")

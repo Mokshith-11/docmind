@@ -68,6 +68,7 @@ const ROUTE_LABEL: Record<string, string> = {
   simple: "Direct lookup",
   multihop: "Multi-step reasoning",
   table: "Table analysis",
+  cache: "⚡ Cached",
 };
 
 function RouteBadge({ route }: { route: string }) {

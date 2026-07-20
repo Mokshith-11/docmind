@@ -94,6 +94,41 @@ async def is_member(user_id: str, workspace_id: str) -> bool:
     return len(rows) > 0
 
 
+# ── Auth admin (GoTrue) — user directory for member management ───────────────
+async def find_user_by_email(email: str) -> dict | None:
+    # GoTrue's admin/users endpoint has no reliable server-side email filter, so
+    # page through and match client-side. Fine for the scale this runs at.
+    email = email.lower()
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
+        for page in range(1, 11):  # cap at 10 pages (2000 users)
+            r = await c.get(
+                f"{settings.supabase_url}/auth/v1/admin/users",
+                headers=_headers(), params={"per_page": "200", "page": str(page)},
+            )
+            if r.is_error:
+                return None
+            users = r.json().get("users", [])
+            if not users:
+                return None
+            match = next((u for u in users if (u.get("email") or "").lower() == email), None)
+            if match:
+                return match
+    return None
+
+
+async def emails_for(user_ids: list[str]) -> dict[str, str]:
+    """Best-effort id -> email map for displaying members."""
+    if not user_ids:
+        return {}
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
+        r = await c.get(f"{settings.supabase_url}/auth/v1/admin/users",
+                        headers=_headers(), params={"per_page": "200"})
+        if r.is_error:
+            return {}
+        wanted = set(user_ids)
+        return {u["id"]: u.get("email", "") for u in r.json().get("users", []) if u["id"] in wanted}
+
+
 # ── Storage ─────────────────────────────────────────────────────────────────
 async def upload(path: str, data: bytes, content_type: str) -> None:
     async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
